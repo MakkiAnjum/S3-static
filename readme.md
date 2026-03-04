@@ -17,7 +17,6 @@ This project is a clean, minimalist portfolio website designed to showcase my jo
 As a Cloud Engineer, I chose this deployment method to highlight:
 
 * **Static Site Hosting:** Leveraging S3's built-in web server capabilities.
-* **Cost-Efficiency:** Utilizing serverless storage to minimize overhead.
 * **IAM & Permissions:** Configured Bucket Policies to allow public read access for the `static.html` object while maintaining secure bucket settings.
 * **High Availability:** Hosted on AWS global infrastructure with 99.99% availability.
 
