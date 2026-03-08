@@ -1,32 +1,25 @@
-# ☁️ Cloud Engineer Portfolio (S3-Hosted)
+# Cloud Engineering Portfolio
 
-This project is a clean, minimalist portfolio website designed to showcase my journey and skills as a **Cloud Engineer**. It is intentionally built as a single-file static site to demonstrate high-availability hosting using cloud-native object storage.
+Welcome to my central repository for cloud infrastructure and AWS implementation labs. This space serves as a professional record of my technical progression and hands-on experience within the cloud ecosystem.
 
-## 🚀 Live Demo
+## Repository Purpose
 
-**URL:** [View My Portfolio](http://aws-cloud-engineer-to-certified.s3-website.eu-north-1.amazonaws.com/static.html)
+This repository is designed as a modular portfolio. Rather than hosting a single monolithic project, it uses a branch-based architecture to demonstrate different technical milestones and infrastructure patterns.
 
-## 🛠 Tech Stack
+Each branch is an independent environment containing:
 
-* **Frontend:** HTML5, CSS3 (Internal Styles)
-* **Infrastructure:** Amazon S3 (Simple Storage Service)
-* **Region:** `eu-north-1` (Stockholm)
+* **Project Source Files:** The code or configuration relevant to that specific lab.
+* **Dedicated Documentation:** A project-specific README detailing the goals and implementation of that branch.
+* **Infrastructure Visuals:** Diagrams specific to the resources deployed in that branch.
 
-## 🏗 Infrastructure Details
+## How to Navigate This Portfolio
 
-As a Cloud Engineer, I chose this deployment method to highlight:
+To explore a specific implementation, please use the branch selector to switch from `main` to the project branch of your choice. Each branch will provide a deep dive into the technical requirements and the deployment process for that specific work.
 
-* **Static Site Hosting:** Leveraging S3's built-in web server capabilities.
-* **IAM & Permissions:** Configured Bucket Policies to allow public read access for the `static.html` object while maintaining secure bucket settings.
-* **High Availability:** Hosted on AWS global infrastructure with 99.99% availability.
+## Methodology
 
-## Architecture diagram
-![alt text](https://github.com/makkianjum/S3-static/blob/main/infra.png?raw=true)
+My approach to this portfolio is built on a "foundational-first" methodology. This involves:
 
-## 📂 Project Structure
-
-```text
-.
-├── static.html        # The main portfolio file (HTML + CSS)
-└── README.md          # Documentation of the project
-
+1. **Manual Configuration:** Mastering the cloud provider's console and CLI to understand service interdependencies.
+2. **Documentation-Driven Development:** Ensuring every deployment is backed by clear, technical writing.
+3. **Iterative Learning:** Moving through service categories intentionally to build a robust, production-ready skillset.
