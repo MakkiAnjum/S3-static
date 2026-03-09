@@ -1,25 +1,34 @@
-# Cloud Engineering Portfolio
+# EC2 and VPC Infrastructure Implementation
 
-Welcome to my central repository for cloud infrastructure and AWS implementation labs. This space serves as a professional record of my technical progression and hands-on experience within the cloud ecosystem.
+This project demonstrates the manual configuration of a foundational AWS networking environment and the deployment of a web server on a compute instance. The goal was to establish a functional public-facing architecture from scratch.
 
-## Repository Purpose
+## Project Objectives
 
-This repository is designed as a modular portfolio. Rather than hosting a single monolithic project, it uses a branch-based architecture to demonstrate different technical milestones and infrastructure patterns.
+* **Network Provisioning:** Constructing a custom Virtual Private Cloud (VPC).
+* **Public Connectivity:** Implementing subnets and routing for internet access.
+* **Compute Deployment:** Launching and configuring an Amazon EC2 instance.
+* **Web Services:** Installing and securing a web server.
 
-Each branch is an independent environment containing:
+## Technical Implementation Steps
 
-* **Project Source Files:** The code or configuration relevant to that specific lab.
-* **Dedicated Documentation:** A project-specific README detailing the goals and implementation of that branch.
-* **Infrastructure Visuals:** Diagrams specific to the resources deployed in that branch.
+### 1. Networking Foundation
 
-## How to Navigate This Portfolio
+* **VPC Creation:** Defined a custom VPC to isolate the infrastructure.
+* **Public Subnet:** Created a subnet within the VPC to host public-facing resources.
+* **Internet Gateway:** Attached an IGW and updated route tables to allow external traffic flow.
 
-To explore a specific implementation, please use the branch selector to switch from `main` to the project branch of your choice. Each branch will provide a deep dive into the technical requirements and the deployment process for that specific work.
+### 2. Instance Launch and Security
 
-## Methodology
+* **EC2 Provisioning:** Launched a Linux-based EC2 instance within the public subnet.
+* **Security Groups:** Configured firewall rules to permit specific traffic:
+* **Port 22 (SSH):** For remote administrative access.
+* **Port 80 (HTTP):** To allow public web traffic.
 
-My approach to this portfolio is built on a "foundational-first" methodology. This involves:
+### 3. Server Configuration
 
-1. **Manual Configuration:** Mastering the cloud provider's console and CLI to understand service interdependencies.
-2. **Documentation-Driven Development:** Ensuring every deployment is backed by clear, technical writing.
-3. **Iterative Learning:** Moving through service categories intentionally to build a robust, production-ready skillset.
+* **Remote Access:** Established a secure connection via SSH.
+* **Web Server Installation:** Deployed Nginx as the primary web server.
+* **Content Customization:** Modified the default `index.html` to serve custom portfolio content.
+
+## Architecture diagram
+![alt text](https://github.com/makkianjum/Cloud-portfolio/blob/main/ec2-vpc-infra.png?raw=true)
