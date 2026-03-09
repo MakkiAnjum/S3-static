@@ -31,4 +31,4 @@ This project demonstrates the manual configuration of a foundational AWS network
 * **Content Customization:** Modified the default `index.html` to serve custom portfolio content.
 
 ## Architecture diagram
-![alt text](https://github.com/makkianjum/Cloud-portfolio/blob/main/ec2-vpc-infra.png?raw=true)
+![alt text](https://github.com/makkianjum/Cloud-portfolio/blob/ec2-vpc-infra/ec2-vpc-infra.png?raw=true)
