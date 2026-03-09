@@ -21,7 +21,7 @@ As a Cloud Engineer, I chose this deployment method to highlight:
 * **High Availability:** Hosted on AWS global infrastructure with 99.99% availability.
 
 ## Architecture diagram
-![alt text](https://github.com/makkianjum/S3-static/blob/main/infra.png?raw=true)
+![alt text](https://github.com/makkianjum/S3-static/blob/s3-static-hosting/infra.png?raw=true)
 
 ## 📂 Project Structure
 
