@@ -1,34 +1,337 @@
-# EC2 and VPC Infrastructure Implementation
+# AWS Cloud Deployment with Terraform and Ansible
 
-This project demonstrates the manual configuration of a foundational AWS networking environment and the deployment of a web server on a compute instance. The goal was to establish a functional public-facing architecture from scratch.
+## Table of Contents
 
-## Project Objectives
+- [Project Overview](#project-overview)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Infrastructure as Code -- Terraform](#infrastructure-as-code----terraform)
+  - [Provider Configuration](#provider-configuration)
+  - [VPC and Networking](#vpc-and-networking)
+  - [EC2 Instance](#ec2-instance)
+  - [Security Groups](#security-groups)
+  - [Terraform-Ansible Integration](#terraform-ansible-integration)
+  - [Variables](#variables)
+  - [Outputs](#outputs)
+- [Configuration Management -- Ansible](#configuration-management----ansible)
+  - [Inventory](#inventory)
+  - [Playbook](#playbook)
+  - [Nginx Role](#nginx-role)
+  - [Website Role](#website-role)
+- [Application Layer](#application-layer)
+- [Prerequisites](#prerequisites)
+- [Deployment Instructions](#deployment-instructions)
+- [Security Considerations](#security-considerations)
+- [Future Improvements](#future-improvements)
 
-* **Network Provisioning:** Constructing a custom Virtual Private Cloud (VPC).
-* **Public Connectivity:** Implementing subnets and routing for internet access.
-* **Compute Deployment:** Launching and configuring an Amazon EC2 instance.
-* **Web Services:** Installing and securing a web server.
+---
 
-## Technical Implementation Steps
+## Project Overview
 
-### 1. Networking Foundation
+This project demonstrates a complete end-to-end cloud deployment pipeline on Amazon Web Services. It provisions cloud infrastructure using Terraform, configures the server using Ansible, and deploys a static website served by Nginx. The entire lifecycle -- from creating the underlying network and compute resources, to installing and configuring the web server, to deploying the application code -- is fully automated and reproducible through code.
 
-* **VPC Creation:** Defined a custom VPC to isolate the infrastructure.
-* **Public Subnet:** Created a subnet within the VPC to host public-facing resources.
-* **Internet Gateway:** Attached an IGW and updated route tables to allow external traffic flow.
+The core objective is to showcase proficiency in key DevOps practices: Infrastructure as Code (IaC), Configuration Management, cloud networking fundamentals, and the integration between provisioning and configuration tooling.
 
-### 2. Instance Launch and Security
+---
 
-* **EC2 Provisioning:** Launched a Linux-based EC2 instance within the public subnet.
-* **Security Groups:** Configured firewall rules to permit specific traffic:
-* **Port 22 (SSH):** For remote administrative access.
-* **Port 80 (HTTP):** To allow public web traffic.
+## Architecture
 
-### 3. Server Configuration
+The deployed architecture consists of the following AWS components:
 
-* **Remote Access:** Established a secure connection via SSH.
-* **Web Server Installation:** Deployed Nginx as the primary web server.
-* **Content Customization:** Modified the default `index.html` to serve custom portfolio content.
+```
+                          Internet
+                             |
+                     [ Internet Gateway ]
+                             |
+                 +-----------+-----------+
+                 |     VPC: 10.0.0.0/16  |
+                 |                       |
+                 |  +------------------+ |
+                 |  | Public Subnet    | |
+                 |  | 10.0.0.0/24     | |
+                 |  |                  | |
+                 |  |  [ EC2 Instance ]| |
+                 |  |  Ubuntu 24.04   | |
+                 |  |  Nginx          | |
+                 |  |  Port 80 (HTTP) | |
+                 |  |  Port 22 (SSH)  | |
+                 |  +------------------+ |
+                 |                       |
+                 |  +------------------+ |
+                 |  | Private Subnet   | |
+                 |  | 10.0.1.0/24     | |
+                 |  | (Reserved)       | |
+                 |  +------------------+ |
+                 +-----------------------+
+```
 
-## Architecture diagram
+Traffic flows from the internet through the Internet Gateway, into the public subnet's route table, and reaches the EC2 instance. The security group acts as a virtual firewall, permitting only SSH (port 22) and HTTP (port 80) traffic inbound.
+
+---
+
+## Project Structure
+
+```
+.
+├── readme.md                              # This file
+├── index.html                             # Source HTML for the static website
+├── nginx.conf                             # Reference Nginx configuration
+├── .gitignore                             # Git ignore rules for Terraform artifacts
+├── IaC/                                   # Terraform infrastructure code
+│   ├── terraform.tf                       # Terraform and provider version constraints
+│   ├── main.tf                            # Core infrastructure definitions
+│   ├── variables.tf                       # Input variable declarations
+│   └── outputs.tf                         # Output value definitions
+└── ansible/                               # Ansible configuration management
+    ├── playbook.yml                       # Main playbook entry point
+    ├── inventory/
+    │   └── inventory.yml                  # Dynamic inventory (generated by Terraform)
+    └── roles/
+        ├── nginx/                         # Role: Nginx installation and configuration
+        │   ├── tasks/
+        │   │   └── main.yml
+        │   └── templates/
+        │       └── sites-available/
+        │           └── site.j2
+        └── website/                       # Role: Website content deployment
+            ├── tasks/
+            │   └── main.yml
+            └── templates/
+                └── index.j2
+```
+
+The project is organized into three distinct layers:
+
+1. **IaC/** -- Contains all Terraform code responsible for provisioning the cloud infrastructure.
+2. **ansible/** -- Contains all Ansible code responsible for configuring the provisioned infrastructure.
+3. **Root directory** -- Contains the application source files (HTML, Nginx config) and project-level configuration.
+
+This separation enforces a clear boundary between infrastructure provisioning and server configuration.
+
+---
+
+## Infrastructure as Code -- Terraform
+
+All cloud infrastructure is defined declaratively using Terraform. The configuration is split across multiple files following Terraform best practices.
+
+### Provider Configuration
+
+Defined in `IaC/terraform.tf`, the project uses the following providers:
+
+- **AWS Provider** (`hashicorp/aws`, version `~> 5.92`): Manages all AWS resources including VPC, subnets, EC2 instances, and security groups.
+- **Local Provider** (`hashicorp/local`, version `2.5.1`): Used to generate the Ansible inventory file on the local filesystem after infrastructure provisioning.
+
+The AWS provider is configured to deploy all resources into the `eu-west-2` (London) region.
+
+Terraform version `>= 1.2` is required.
+
+### VPC and Networking
+
+The project creates a custom Virtual Private Cloud using the community-maintained `terraform-aws-modules/vpc/aws` module (version `5.19.0`). This module abstracts the creation of numerous interdependent networking resources into a single, well-tested configuration block.
+
+The VPC module provisions the following:
+
+| Resource              | Configuration                                 |
+|-----------------------|-----------------------------------------------|
+| VPC                   | CIDR block `10.0.0.0/16` (65,536 addresses)  |
+| Public Subnet         | `10.0.0.0/24` in `eu-west-2a`                |
+| Private Subnet        | `10.0.1.0/24` in `eu-west-2a`                |
+| Internet Gateway      | Automatically created by the module           |
+| Public Route Table    | Routes `0.0.0.0/0` traffic to the IGW        |
+| DNS Hostnames         | Enabled for the VPC                           |
+
+The public subnet is configured with a route table entry that directs all outbound internet traffic (`0.0.0.0/0`) through the Internet Gateway. This is what allows the EC2 instance to be reachable from the internet and to initiate outbound connections (for example, to download packages during Ansible provisioning).
+
+The private subnet is provisioned but currently unused. It is reserved for future use cases such as database servers or backend services that should not be directly accessible from the internet.
+
+### EC2 Instance
+
+A single EC2 instance is provisioned with the following configuration:
+
+- **AMI**: The latest Ubuntu 24.04 LTS (Noble Numbat) AMI is dynamically resolved at plan time using an `aws_ami` data source. The data source filters by the official Canonical owner ID (`099720109477`) and the `hvm-ssd-gp3` AMI name pattern, ensuring the instance always launches with the most recent patched image.
+- **Instance Type**: Configurable via the `instance_type` variable (defaults to `t3.micro`).
+- **Subnet Placement**: Launched in the first public subnet created by the VPC module.
+- **Public IP**: Explicitly enabled via `associate_public_ip_address = true`, ensuring the instance receives a public IPv4 address for internet accessibility.
+- **SSH Access**: An existing EC2 Key Pair (referenced by the `key_pair_name` variable) is attached to the instance. AWS injects the corresponding public key into the `ubuntu` user's `~/.ssh/authorized_keys` file at launch time, enabling passwordless SSH access.
+
+### Security Groups
+
+A custom security group (`ec2_app_server_sg`) is created and attached to the EC2 instance. It defines the following firewall rules:
+
+**Inbound Rules (Ingress):**
+
+| Port | Protocol | Source        | Purpose                          |
+|------|----------|---------------|----------------------------------|
+| 22   | TCP      | `0.0.0.0/0`  | SSH access for remote management |
+| 80   | TCP      | `0.0.0.0/0`  | HTTP access for web traffic      |
+
+**Outbound Rules (Egress):**
+
+| Port | Protocol | Destination   | Purpose                                  |
+|------|----------|---------------|------------------------------------------|
+| All  | All      | `0.0.0.0/0`  | Allow all outbound traffic (updates, etc)|
+
+The security group is scoped to the custom VPC via the `vpc_id` attribute, ensuring it is only applicable to resources within this project's network.
+
+### Terraform-Ansible Integration
+
+A key design decision in this project is the automated handoff between Terraform and Ansible. After the EC2 instance is created, Terraform uses the `local_file` resource to dynamically generate the Ansible inventory file at `ansible/inventory/inventory.yml`.
+
+This resource templates the public IP address of the newly created instance, along with the SSH connection parameters (`ansible_user` and `ansible_ssh_private_key_file`), into a valid YAML inventory file. This eliminates the need to manually copy IP addresses between tools and ensures the inventory is always in sync with the actual infrastructure.
+
+### Variables
+
+All configurable parameters are extracted into `IaC/variables.tf`:
+
+| Variable          | Type   | Default            | Description                                      |
+|-------------------|--------|--------------------|--------------------------------------------------|
+| `instance_name`   | string | `learn-terraform`  | The Name tag applied to the EC2 instance         |
+| `instance_type`   | string | `t3.micro`         | The EC2 instance type                            |
+| `key_pair_name`   | string | `devops`           | Name of the pre-existing AWS EC2 Key Pair        |
+
+### Outputs
+
+After a successful `terraform apply`, the following values are printed and stored in the Terraform state:
+
+| Output                | Description                                   |
+|-----------------------|-----------------------------------------------|
+| `instance_hostname`   | The private DNS name of the EC2 instance      |
+| `instance_public_ip`  | The public IPv4 address of the EC2 instance   |
+
+---
+
+## Configuration Management -- Ansible
+
+Once the infrastructure is provisioned by Terraform, Ansible takes over to configure the server. Ansible connects to the EC2 instance over SSH and executes a series of tasks to install Nginx, configure it, and deploy the website content.
+
+### Inventory
+
+The inventory file at `ansible/inventory/inventory.yml` is automatically generated by Terraform (as described above). It defines a single host group called `webservers` containing the EC2 instance, along with the connection parameters:
+
+- `ansible_host`: The public IP address of the instance.
+- `ansible_user`: Set to `ubuntu`, the default user for Ubuntu AMIs on AWS.
+- `ansible_ssh_private_key_file`: Path to the local SSH private key used for authentication.
+
+### Playbook
+
+The main playbook at `ansible/playbook.yml` is the entry point for all configuration. It targets the `webservers` host group, enables privilege escalation (`become: yes`) to run tasks as root, and applies two roles in sequence:
+
+1. **nginx** -- Installs and configures the Nginx web server.
+2. **website** -- Deploys the static HTML content to the server.
+
+### Nginx Role
+
+The `nginx` role (`ansible/roles/nginx/`) handles the complete lifecycle of the Nginx web server installation and configuration. It performs the following tasks in order:
+
+1. **Add Nginx APT Key**: Imports the GPG signing key for the Ondrej Nginx PPA from the Ubuntu keyserver. The key is stored in `/usr/share/keyrings/nginx` for use with signed repository verification.
+
+2. **Add Nginx APT Repository**: Registers the Ondrej Nginx PPA as an APT source. This PPA provides more recent Nginx builds than the default Ubuntu repositories, compiled with additional modules and optimizations.
+
+3. **Install Nginx**: Installs the latest version of Nginx from the configured repository and updates the APT cache to ensure the latest package metadata is fetched.
+
+4. **Remove Default Site**: Deletes both the default site configuration file and its symlink from `/etc/nginx/sites-available/default` and `/etc/nginx/sites-enabled/default`. This prevents the default Nginx welcome page from interfering with the project's site configuration.
+
+5. **Create Site Configuration**: Deploys a custom Nginx virtual host configuration from the Jinja2 template at `templates/sites-available/site.j2` to `/etc/nginx/sites-available/site`. The template configures Nginx to listen on port 80, serve content from `/var/www/html`, and handle requests with standard file-serving directives.
+
+6. **Enable Site**: Creates a symbolic link from `/etc/nginx/sites-available/site` to `/etc/nginx/sites-enabled/site`, following the standard Nginx pattern for enabling virtual hosts.
+
+7. **Restart Nginx**: Restarts the Nginx service and ensures it is enabled to start automatically on system boot.
+
+### Website Role
+
+The `website` role (`ansible/roles/website/`) is responsible for deploying the actual website content. It performs a single task:
+
+1. **Deploy Index Page**: Renders the `index.j2` Jinja2 template and places the resulting HTML file at `/var/www/html/index.html` with appropriate ownership (`root:root`) and permissions (`0644`).
+
+The deployed page is a static HTML document styled with inline CSS, presenting a cloud deployment portfolio page that describes the technical stack used in the project.
+
+---
+
+## Application Layer
+
+The application itself is a single-page static HTML website. It is served by Nginx on port 80 and requires no backend, database, or runtime environment. The site is designed to serve as both a functional deployment target and a portfolio piece that documents the infrastructure it runs on.
+
+The Nginx configuration template (`site.j2`) defines a straightforward virtual host that listens on port 80, serves files from `/var/www/html`, and returns a 404 for any request that does not match an existing file.
+
+---
+
+## Prerequisites
+
+Before deploying this project, ensure the following are in place:
+
+1. **Terraform** (version >= 1.2) installed on your local machine.
+2. **Ansible** installed on your local machine.
+3. **AWS CLI** configured with valid credentials that have permissions to create VPCs, subnets, EC2 instances, security groups, and internet gateways.
+4. **An existing EC2 Key Pair** named `devops` (or override via variable) registered in the `eu-west-2` region of your AWS account. The corresponding private key must be available locally at `~/.ssh/id_rsa`.
+
+---
+
+## Deployment Instructions
+
+### Step 1: Provision the Infrastructure
+
+```bash
+cd IaC
+terraform init
+terraform plan
+terraform apply
+```
+
+After `terraform apply` completes, it will:
+- Create all AWS resources (VPC, subnet, EC2 instance, security group, internet gateway).
+- Output the public IP address of the EC2 instance.
+- Generate the Ansible inventory file at `ansible/inventory/inventory.yml`.
+
+### Step 2: Configure the Server and Deploy the Website
+
+```bash
+cd ../ansible
+ansible-playbook -i inventory/inventory.yml playbook.yml
+```
+
+This will connect to the EC2 instance over SSH, install Nginx, apply the site configuration, and deploy the HTML content.
+
+### Step 3: Access the Website
+
+Open a browser and navigate to:
+
+```
+http://<instance_public_ip>
+```
+
+The public IP can be obtained from the Terraform output:
+
+```bash
+cd ../IaC
+terraform output instance_public_ip
+```
+
+### Teardown
+
+To destroy all provisioned resources:
+
+```bash
+cd IaC
+terraform destroy
+```
+
+---
+
+## Security Considerations
+
+- **SSH access is open to all IPs** (`0.0.0.0/0` on port 22). In a production environment, this should be restricted to specific known IP addresses or replaced with a bastion host architecture.
+- **State is stored locally.** The Terraform state file contains sensitive information and is not encrypted or locked. For team environments, a remote backend (such as S3 with DynamoDB locking) should be configured.
+- **The `.gitignore` file** correctly excludes Terraform state files, lock files, variable override files, and the `.terraform` directory from version control, preventing accidental exposure of sensitive data.
+- **HTTP only.** The site is served over unencrypted HTTP. For production deployments, HTTPS should be enabled using an SSL/TLS certificate (for example, via AWS Certificate Manager and an Application Load Balancer, or Certbot on the instance).
+
+---
+
+## Future Improvements
+
+- Configure a remote Terraform backend with S3 and DynamoDB for state management and locking.
+- Add HTTPS support with SSL/TLS termination.
+- Restrict SSH ingress to specific IP ranges or implement a bastion host.
+- Use Ansible handlers instead of unconditional service restarts for idempotency.
+- Add a Terraform `local-exec` provisioner to trigger the Ansible playbook automatically after infrastructure creation.
+- Implement CI/CD with GitHub Actions to automate the full provisioning and deployment pipeline on every push.
 ![alt text](https://github.com/makkianjum/Cloud-portfolio/blob/ec2-vpc-infra/ec2-vpc-infra.png?raw=true)

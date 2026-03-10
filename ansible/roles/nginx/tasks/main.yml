@@ -1,0 +1,46 @@
+---
+- name: add nginx apt key
+  apt_key:
+    url: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xb8dc7e53946656efbce4c1dd71daeaab4ad4cab6
+    keyring: /usr/share/keyrings/nginx
+    state: present
+
+- name: add nginx apt ppa
+  apt_repository:
+    repo: deb [signed-by=/usr/share/keyrings/nginx] https://ppa.launchpadcontent.net/ondrej/nginx/ubuntu noble main
+    state: present
+    filename: nginx
+
+- name: install nginx
+  apt:
+    pkg: nginx
+    state: latest
+    update_cache: yes
+
+- name: remove default nginx site
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/nginx/sites-enabled/default
+    - /etc/nginx/sites-available/default
+
+- name: create site config
+  template:
+    src: "sites-available/site.j2"
+    dest: "/etc/nginx/sites-available/site"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: enable site
+  file:
+    src: /etc/nginx/sites-available/site
+    dest: /etc/nginx/sites-enabled/site
+    state: link
+
+- name: restart nginx
+  service:
+    name: nginx
+    enabled: yes
+    state: restarted
